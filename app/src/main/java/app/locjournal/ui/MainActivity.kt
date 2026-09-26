@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -102,6 +103,10 @@ private fun AppRoot() {
     val selection by selectionVm.selection.collectAsStateWithLifecycle()
 
     Scaffold(
+        // Each screen's own Scaffold/TopAppBar handles the status bar and notch. If this outer Scaffold
+        // also took those insets, consumeWindowInsets below would mark them used and the inner top bars
+        // would draw under the notch.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (currentRoute in topDestinations.map { it.route }) {
                 NavigationBar {
