@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Todo</title>
+<meta name="theme-color" content="#0f1115">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <h1>Todo</h1>
+    <div class="topbar-actions">
+      <button id="btnAdd" class="btn btn-primary">+ New</button>
+      <button id="btnNotify" class="btn btn-ghost" title="Enable reminders">🔔</button>
+      <button id="btnTrash" class="btn btn-ghost" title="Trash">🗑 <span id="trashCount">0</span></button>
+      <button id="btnExport" class="btn btn-ghost" title="Export backup">Export</button>
+      <label class="btn btn-ghost file-btn" title="Restore from backup">
+        Import
+        <input type="file" id="importFile" accept="application/json" hidden>
+      </label>
+      <button id="btnTheme" class="btn btn-ghost" title="Toggle theme">🌓</button>
+    </div>
+  </header>
+
+  <p id="connError" class="conn-error" hidden>Can't reach the server. Check that it's running and reachable.</p>
+
+  <section class="stats" id="stats"></section>
+
+  <section class="controls">
+    <input type="text" id="search" class="search" placeholder="Search todos…">
+    <select id="filterStatus">
+      <option value="active">Active</option>
+      <option value="overdue">Overdue</option>
+      <option value="today">Due Today</option>
+      <option value="upcoming">Upcoming</option>
+      <option value="completed">Completed</option>
+      <option value="all">All</option>
+    </select>
+    <select id="filterPriority">
+      <option value="">Any priority</option>
+      <option value="high">High</option>
+      <option value="medium">Medium</option>
+      <option value="low">Low</option>
+    </select>
+    <select id="filterCategory">
+      <option value="">Any category</option>
+    </select>
+    <select id="sortBy">
+      <option value="due">Sort: Due date</option>
+      <option value="priority">Sort: Priority</option>
+      <option value="created">Sort: Created</option>
+      <option value="title">Sort: Title</option>
+    </select>
+  </section>
+
+  <main id="list" class="todo-list"></main>
+
+  <p id="emptyState" class="empty-state" hidden>Nothing here. Add a todo to get started.</p>
+
+</div>
+
+<!-- Add/Edit Todo Modal -->
+<div id="modalOverlay" class="modal-overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true">
+    <h2 id="modalTitle">New Todo</h2>
+    <form id="todoForm">
+      <input type="hidden" id="fId">
+
+      <label>Title
+        <input type="text" id="fTitle" required maxlength="200">
+      </label>
+
+      <label>Notes
+        <textarea id="fNotes" rows="2" maxlength="2000"></textarea>
+      </label>
+
+      <div class="form-row">
+        <label>Due date
+          <input type="date" id="fDue">
+        </label>
+        <label>Due time <span class="hint-inline">(optional)</span>
+          <input type="time" id="fDueTime">
+        </label>
+      </div>
+
+      <div class="form-row">
+        <label>Priority
+          <select id="fPriority">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+          </select>
+        </label>
+        <label>Category <span class="hint-inline">(optional)</span>
+          <input type="text" id="fCategory" list="categoryList" placeholder="e.g. Personal" maxlength="60">
+          <datalist id="categoryList"></datalist>
+        </label>
+      </div>
+
+      <fieldset class="recurrence-box">
+        <legend>
+          <label class="inline-check">
+            <input type="checkbox" id="fRecurEnabled">
+            Repeats
+          </label>
+        </legend>
+        <div class="form-row" id="recurFields" hidden>
+          <label>Every
+            <input type="number" id="fRecurInterval" min="1" value="1" style="width:5rem">
+          </label>
+          <select id="fRecurUnit">
+            <option value="days">day(s)</option>
+            <option value="weeks" selected>week(s)</option>
+            <option value="months">month(s)</option>
+          </select>
+        </div>
+        <p class="hint" id="recurHint" hidden>
+          The next occurrence is scheduled this far <strong>after the day you actually mark it done</strong> —
+          not from the original due date. Finish late, or backdate your completion, and the next due date shifts with it.
+        </p>
+      </fieldset>
+
+      <fieldset class="subtasks-box">
+        <legend>Subtasks <span class="hint-inline">(optional)</span></legend>
+        <div id="subtaskList"></div>
+        <div class="subtask-add">
+          <input type="text" id="fSubtaskInput" placeholder="Add a subtask and press Enter">
+        </div>
+      </fieldset>
+
+      <div class="modal-actions">
+        <button type="button" id="btnCancel" class="btn btn-ghost">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Complete-with-date Modal -->
+<div id="completeOverlay" class="modal-overlay" hidden>
+  <div class="modal modal-small" role="dialog" aria-modal="true">
+    <h2>Mark done</h2>
+    <p class="hint">When did you actually do this? The next recurrence (if any) counts from this date.</p>
+    <label>Done on
+      <input type="date" id="completeDate">
+    </label>
+    <div class="modal-actions">
+      <button type="button" id="btnCompleteCancel" class="btn btn-ghost">Cancel</button>
+      <button type="button" id="btnCompleteConfirm" class="btn btn-primary">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit completed-at Modal -->
+<div id="editDoneOverlay" class="modal-overlay" hidden>
+  <div class="modal modal-small" role="dialog" aria-modal="true">
+    <h2>Edit completion date</h2>
+    <p class="hint">Changing this reschedules the next recurrence if it hasn't been completed yet.</p>
+    <label>Actually done on
+      <input type="date" id="editDoneDate">
+    </label>
+    <div class="modal-actions">
+      <button type="button" id="btnEditDoneCancel" class="btn btn-ghost">Cancel</button>
+      <button type="button" id="btnEditDoneConfirm" class="btn btn-primary">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Trash Panel -->
+<div id="trashOverlay" class="modal-overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true">
+    <h2>Trash</h2>
+    <div id="trashList" class="trash-list"></div>
+    <div class="modal-actions">
+      <button type="button" id="btnEmptyTrash" class="btn btn-danger">Empty Trash</button>
+      <button type="button" id="btnTrashClose" class="btn btn-ghost">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Import confirm -->
+<div id="importOverlay" class="modal-overlay" hidden>
+  <div class="modal modal-small" role="dialog" aria-modal="true">
+    <h2>Restore from backup?</h2>
+    <p class="hint">This replaces <strong>all</strong> current todos with the contents of the selected file. This can't be undone.</p>
+    <div class="modal-actions">
+      <button type="button" id="btnImportCancel" class="btn btn-ghost">Cancel</button>
+      <button type="button" id="btnImportConfirm" class="btn btn-danger">Replace everything</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
