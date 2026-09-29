@@ -1,0 +1,15 @@
+# Serves the todo app over HTTPS using Caddy's internal local CA — no public
+# domain or ACME needed. Answers on any hostname/IP the request comes in on
+# (LAN IP, mDNS name, or a Tailscale IP), so one Caddyfile works everywhere.
+#
+# One-time step: trust Caddy's local CA on your phone (see README.md) —
+# otherwise Chrome will refuse the certificate and PWA install won't work.
+
+:80 {
+	redir https://{host}{uri}
+}
+
+:443 {
+	tls internal
+	reverse_proxy localhost:4000
+}
